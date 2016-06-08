@@ -1,6 +1,6 @@
 //***************************************************************************
 
-// Copyright (C) 2004 ~ 2010 Realmac Software Ltd
+// Copyright (C) 2009 ~ 2016 Realmac Software Ltd
 //
 // These coded instructions, statements, and computer programs contain
 // unpublished proprietary information of Realmac Software Ltd
@@ -13,11 +13,14 @@
 #import "RMSSamplePlugin.h"
 #import "RMSSamplePluginOptionsViewController.h"
 #import "RMSSamplePluginContentViewController.h"
+#import "Post.h"
 
 @interface RMSSamplePlugin ()
 
 @property (nonatomic, strong) RMSSamplePluginOptionsViewController *optionsAndConfigurationViewController;
 @property (nonatomic, strong) RMSSamplePluginContentViewController *userInteractionAndEditingViewController;
+@property (nonatomic, strong) NSMutableArray *posts;
+@property (nonatomic, strong) NSNumber *mainPagePosts;
 
 @end
 
@@ -31,63 +34,54 @@
 
 - (NSView *)optionsAndConfigurationView
 {
-	if (_optionsAndConfigurationViewController == nil)
+	if (self.optionsAndConfigurationViewController == nil)
 	{
-		_optionsAndConfigurationViewController = [[RMSSamplePluginOptionsViewController alloc] initWithRepresentedObject:self];
+		self.optionsAndConfigurationViewController = [[RMSSamplePluginOptionsViewController alloc] initWithPlugin:self];
 	}
 	
-	return _optionsAndConfigurationViewController.view;
+	return self.optionsAndConfigurationViewController.view;
 }
 
 - (NSView *)userInteractionAndEditingView
 {
-	if (_userInteractionAndEditingViewController == nil)
+	if (self.userInteractionAndEditingViewController == nil)
 	{		
-		_userInteractionAndEditingViewController = [[RMSSamplePluginContentViewController alloc] initWithRepresentedObject:self];
+		self.userInteractionAndEditingViewController = [[RMSSamplePluginContentViewController alloc] initWithRepresentedObject:self];
+		self.userInteractionAndEditingViewController.posts = self.posts;
 	}
 	
-	return _userInteractionAndEditingViewController.view;
+	return self.userInteractionAndEditingViewController.view;
 }
 
 - (id)contentHTML:(NSDictionary *)params
 {
-	NSString *string = (self.userInteractionAndEditingViewController.content) ?: self.content;
-	if (string == nil) {
-		string = @"";
+	// This is where we'll provide the content for the main page. For a blog, we want to show a list of recent posts.
+	
+	NSString *extension = params[@"FilenameExt"];
+	NSString *folder = params[@"filesfoldername"];
+	
+	NSMutableString *content = [NSMutableString string];
+	for (NSInteger i = 0; i < [self.mainPagePosts integerValue]; i++){
+		Post *p = self.userInteractionAndEditingViewController.postsArrayController.arrangedObjects[i];
+		[content appendFormat:@"<a href=\"%@/%@.%@\">%@</a><br />\n", folder, p.filename, extension, [p titleHTML]];
 	}
 	
-	if (self.emitRawContent == NO) {
-		return [NSString stringWithString:string];
+	return [NSString stringWithString:content];
+}
+
+- (NSArray *)extraFilesNeededInExportFolder:(NSDictionary *)params
+{
+	// This is where we will export all of the sub-pages (blog posts). There are a few ways of doing this, but this is the most simple. This method also ensures that our content is inserted into a page already styled with the selected theme.
+	NSString *extension = params[@"FilenameExt"];
+	
+	NSMutableArray *extraFiles = [NSMutableArray array];
+	for (Post *p in self.posts){
+		NSString *postContents = [p html];
+		NSString *filename = [p.filename stringByAppendingPathExtension:extension];
+		[extraFiles addObject:[self contentOnlySubpageWithHTML:postContents name:filename]];
 	}
 	
-	return [self contentOnlySubpageWithEntireHTML:[NSString stringWithString:string] name:nil];
-}
-
-- (NSString *)sidebarHTML:(NSDictionary *)params
-{
-	return nil;
-}
-
-- (NSNumber *)normaliseImages
-{
-	return @0U;
-}
-
-- (NSString *)overrideFileExtension
-{
-	// Return the extension you'd like to force RapidWeaver to apply to your page.
-	
-	return @"htm";
-}
-
-- (void)pluginWillAutoSave {
-	
-//	NSLog(@"Called -pluginWillAutoSave. Is main thread: %d", [NSThread isMainThread]);
-}
-
-- (void)pluginDidAutoSave {
-	
-//	NSLog(@"Called -pluginDidAutoSave. Is main thread: %d", [NSThread isMainThread]);
+	return extraFiles;
 }
 
 //***************************************************************************
@@ -98,7 +92,7 @@
 {
 	// Add any values here that cause the document to need saving. This allows us to use KVO to catch any changes and do our broadcasting instead of writing the setters manually. Properties and KVO FTW!
 	
-	return @[@"emitRawContent", @"fileToken"];
+	return @[@"mainPagePosts"];
 }
 
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context
@@ -144,36 +138,29 @@
 - (void)encodeWithCoder:(NSCoder *)coder
 {
 	[super encodeWithCoder:coder];
-	
-	[coder encodeObject:(self.userInteractionAndEditingViewController.content) ?: self.content forKey:@"Content String"];
-	[coder encodeObject:@(self.emitRawContent) forKey:@"Emit Raw Content"];
-	[coder encodeObject:self.fileToken forKey:@"File Token"];
+	[coder encodeObject:[NSKeyedArchiver archivedDataWithRootObject:self.posts] forKey:NSStringFromSelector(@selector(posts))];
+	[coder encodeObject:self.mainPagePosts forKey:NSStringFromSelector(@selector(mainPagePosts))];
 }
 
 - (instancetype)initWithCoder:(NSCoder *)coder
 {
-	self = [super initWithCoder:coder];
-	if (self == nil) {
-		return nil;
+	if (self = [super initWithCoder:coder]) {
+		self.posts = [[NSKeyedUnarchiver unarchiveObjectWithData:[coder decodeObjectForKey:NSStringFromSelector(@selector(posts))]] mutableCopy];
+		self.mainPagePosts = [coder decodeObjectForKey:NSStringFromSelector(@selector(mainPagePosts))];
+		[self finishSetup];
 	}
-	
-	_content = [[coder decodeObjectForKey:@"Content String"] copy];
-	_emitRawContent = [[coder decodeObjectForKey:@"Emit Raw Content"] boolValue];
-	_fileToken = [[coder decodeObjectForKey:@"File Token"] copy];
-	
-	[self finishSetup];
 	
 	return self;
 }
 
 - (instancetype)init
 {
-	self = [super init];
-	if (self == nil) {
-		return nil;
+	if (self = [super init]) {
+		self.posts = [NSMutableArray array];
+		self.mainPagePosts = @5;
+		
+		[self finishSetup];
 	}
-	
-	[self finishSetup];
 	
 	return self;
 }
@@ -197,18 +184,6 @@
 	return YES;
 }
 
-+ (NSEnumerator *)pluginsAvailable
-{
-	id plugin = [[RMSSamplePlugin alloc] init];
-	
-	if (plugin)
-	{
-		return [@[plugin] objectEnumerator];
-	}
-	
-	return nil;
-}
-
 + (NSString *)pluginName
 {
 	return NSLocalizedStringFromTableInBundle(@"PluginName", nil, [RMSSamplePlugin bundle], @"Localizable");
@@ -229,18 +204,6 @@
 + (NSString *)pluginDescription;
 {
 	return NSLocalizedStringFromTableInBundle(@"PluginDescription", nil, [RMSSamplePlugin bundle], @"Localizable");
-}
-
-+ (BOOL) canCreateNewPage:(NSError **)errorRef
-{
-	// Return NO and populate the errorRef's localizedDescription if you want to stop a user from creating a new page.
-	return YES;
-}
-
-+ (void) willMigrateAddonLocation
-{
-	// If you'd like to be notified if the user migrates their addon folder to a new location,
-	// implement this method and do any necessary work before returning
 }
 
 @end

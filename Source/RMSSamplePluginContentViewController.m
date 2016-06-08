@@ -1,6 +1,6 @@
 //***************************************************************************
 
-// Copyright (C) 2009 ~ 2010 Realmac Software Ltd
+// Copyright (C) 2009 ~ 2016 Realmac Software Ltd
 //
 // These coded instructions, statements, and computer programs contain
 // unpublished proprietary information of Realmac Software Ltd
@@ -12,53 +12,50 @@
 
 #import "RMSSamplePlugin.h"
 #import "RMSSamplePluginContentViewController.h"
+#import "Post.h"
 
 @interface RMSSamplePluginContentViewController ()
 
 @property (nonatomic, weak) RMSSamplePlugin *plugin;
+@property (nonatomic, weak) IBOutlet NSTableView *tableView;
 
 @end
 
 //***************************************************************************
 
+static void *PluginContentViewControllerContext = &PluginContentViewControllerContext;
+
 @implementation RMSSamplePluginContentViewController
 
-@dynamic content;
-
-- (NSString *)content
+- (instancetype)initWithRepresentedObject:(id)object
 {
-	return htmlView.string;
-}
-
-- (void)textDidChange:(NSNotification *)notification
-{
-	RMSSamplePlugin *p = self.plugin;
+	if (self = [super initWithNibName:@"RMSSamplePluginContentView" bundle:[RMSSamplePlugin bundle]]) {
+		self.plugin = object;
+	}
 	
-	[p broadcastPluginChanged];
+	return self;
 }
 
 - (void)awakeFromNib
 {
-	RMSSamplePlugin *p = self.plugin;
-	NSString *string = p.content;
-	
-	if (string) {
-		htmlView.string = string;
-	}
-	
-	[htmlView setHasBorder:NO];
+	[super awakeFromNib];
+	[self.postsArrayController setSortDescriptors:@[[NSSortDescriptor sortDescriptorWithKey:NSStringFromSelector(@selector(date)) ascending:NO]]];
 }
 
-- (instancetype)initWithRepresentedObject:(id)object
+- (IBAction)addPost:(id)sender
 {
-	self = [super initWithNibName:@"RMSSamplePluginContentView" bundle:[RMSSamplePlugin bundle]];
-	if (self == nil) {
-		return nil;
-	}
-	
-	self.plugin = object;
-	
-	return self;
+	Post *p = [[Post alloc] init];
+	[self.posts addObject:p];
+	[self.postsArrayController rearrangeObjects];
+	[self.tableView editColumn:0 row:[self.postsArrayController.arrangedObjects indexOfObject:p] withEvent:nil select:NO];
+	[self.plugin broadcastPluginChanged];
+}
+
+- (IBAction)removePost:(id)sender
+{
+	[self.posts removeObjectsInArray:[self.postsArrayController.arrangedObjects objectsAtIndexes:[self.tableView selectedRowIndexes]]];
+	[self.postsArrayController rearrangeObjects];
+	[self.plugin broadcastPluginChanged];
 }
 
 @end

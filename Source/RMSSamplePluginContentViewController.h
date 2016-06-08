@@ -1,6 +1,6 @@
 //***************************************************************************
 
-// Copyright (C) 2009 ~ 2010 Realmac Software Ltd
+// Copyright (C) 2009 ~ 2016 Realmac Software Ltd
 //
 // These coded instructions, statements, and computer programs contain
 // unpublished proprietary information of Realmac Software Ltd
@@ -11,13 +11,11 @@
 //***************************************************************************
 
 @interface RMSSamplePluginContentViewController : NSViewController
-{
-	IBOutlet RWHTMLView *htmlView;
-}
 
-@property (weak, nonatomic, readonly) NSString *content;
+- (instancetype)initWithRepresentedObject:(id)object;
 
-- (instancetype)initWithRepresentedObject:(id)object NS_DESIGNATED_INITIALIZER;
+@property (nonatomic, weak) NSMutableArray *posts;
+@property (nonatomic, weak) IBOutlet NSArrayController *postsArrayController;
 
 @end
 

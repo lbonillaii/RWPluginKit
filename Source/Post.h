@@ -10,10 +10,17 @@
 
 //***************************************************************************
 
-@interface RMSSamplePluginOptionsViewController : NSViewController
+#import <Foundation/Foundation.h>
 
-- (instancetype)initWithPlugin:(id)object;
+@interface Post : NSObject <NSCoding>
+
+@property (nonatomic, copy) NSString *title;
+@property (nonatomic, copy) NSString *body;
+@property (nonatomic, copy, readonly) NSDate *date;
+@property (nonatomic, copy, readonly) NSString *filename;
+
+- (NSString *)html;
+- (NSString *)titleHTML;
+- (NSString *)bodyHTML;
 
 @end
-
-//***************************************************************************

@@ -10,10 +10,8 @@
 
 //***************************************************************************
 
-@interface RMSSamplePluginOptionsViewController : NSViewController
+#import <Foundation/Foundation.h>
 
-- (instancetype)initWithPlugin:(id)object;
+@interface AttributedStringToStringValueTransformer : NSValueTransformer
 
 @end
-
-//***************************************************************************

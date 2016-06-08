@@ -1,6 +1,6 @@
 //***************************************************************************
 
-// Copyright (C) 2008 ~ 2010 Realmac Software Ltd
+// Copyright (C) 2009 ~ 2016 Realmac Software Ltd
 //
 // These coded instructions, statements, and computer programs contain
 // unpublished proprietary information of Realmac Software Ltd
@@ -21,7 +21,7 @@
 {
 	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 	
-	[RMSandwich setFactoryClass:self forType:@"RapidWeaver HTML Code Data"];
+	[RMSandwich setFactoryClass:self forType:@"RapidWeaver Sample Plugin Data"];
 	
 	[pool drain];
 }
@@ -31,36 +31,18 @@
 	RMSSamplePlugin *plugin = [[[RMSSamplePlugin alloc] init] autorelease];
 	
 	NSDictionary *dictionary = [sandwich sandwichFillingForVersion:0].dictionary;
-	NSDictionary *files = [sandwich sandwichFillingForVersion:0].files;
-	
-	NSString *pathToHTMLContents = [files objectForKey:@"Contents.html"];
-	if (pathToHTMLContents)
-	{
-		plugin.content = [[NSString stringWithContentsOfFile:pathToHTMLContents encoding:NSUTF8StringEncoding error:NULL] retain];
-	}
-	
-	NSNumber *applyThemeToPageNumber = [dictionary objectForKey:@"ApplyThemeToPage"];
-	if (applyThemeToPageNumber) [plugin setEmitRawContent:(![applyThemeToPageNumber boolValue])];
+	NSData *postsData = dictionary[NSStringFromSelector(@selector(posts))];
+	NSArray *posts = [NSKeyedUnarchiver unarchiveObjectWithData:postsData];
+	plugin.posts = [NSMutableArray arrayWithArray:posts];
 	
 	return plugin;
 }
 
 - (RMSandwich *)sandwich
 {
-	RMSandwich *sandwich = [RMSandwich sandwichWithType:@"RapidWeaver HTML Code Data"];
-	
-	NSDictionary *dictionary = [NSDictionary dictionaryWithObjectsAndKeys:
-		[NSNumber numberWithBool:(self.emitRawContent == NO)], @"ApplyThemeToPage", nil];
+	RMSandwich *sandwich = [RMSandwich sandwichWithType:@"RapidWeaver Sample Plugin Data"];
+	NSDictionary *dictionary = @{NSStringFromSelector(@selector(posts)) : [NSKeyedArchiver archivedDataWithRootObject:self.posts]};
 	[sandwich setDictionary:dictionary forVersion:0];
-	
-	NSString *pathToHTMLContents = [[NSFileManager defaultManager] temporaryFilenameWithPrefix:@"HTMLPageSave" extension:@"html"];
-	
-	NSString *html = (contentViewController.content) ?: self.content;
-	[html writeToFile:pathToHTMLContents atomically:NO encoding:NSUTF8StringEncoding error:NULL];
-	
-	NSDictionary *files = [NSDictionary dictionaryWithObjectsAndKeys:pathToHTMLContents, @"Contents.html", nil];
-	[sandwich setFiles:files forVersion:0];
-	
 	return sandwich;
 }
 
